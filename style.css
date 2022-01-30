@@ -1,4 +1,6 @@
 .body {
+    font-size: 18px;
+    background-color: #eeeeee;
     max-width: 80%;
     margin-left: auto;
     margin-right: auto;
@@ -11,18 +13,15 @@
     font-style: bold;
     padding-top: 20px;
     padding-bottom: 20px;
-    background-color: chocolate;
 }
 
 .grid-container {
     display: grid;
     grid-template-columns: 50% 50%;
     min-height: 600px;
-    
 }
 
 .left {
-    background-color: aqua;
     text-align: center;
     display: grid;
     grid-template-rows: 33% 33% 33%;
@@ -30,15 +29,17 @@
 }
 
 .right {
-    background-color: brown;
     text-align: center;
+    display: grid;
+    grid-template-rows: 33% 33% 33%;
 }
 
 #upload {
     display: none;
 }
 
-#filename {
+.message {
+    margin-top: 10px;
     font-size: 30px;
 }
 
@@ -46,6 +47,7 @@
     width: 240px;
     height: 80px;
     font-size: 10px;
+    margin-top: 10px;
 }
 
 .left-grid {
@@ -61,10 +63,6 @@
 }
 
 
-.right-grid-1 {
-    display: grid;
-    grid-template-columns: 50% 50%;
-}
 
 .right-grid-1-item-label {
     margin-top: 10px;
@@ -76,3 +74,16 @@
     margin-left: auto;
     margin-right: auto;
 }
+
+.slider {
+    margin-top: 30px;
+}
+
+@media screen and (max-width: 600px) {
+    .grid-container {
+        display: grid;
+        grid-template-columns: auto;
+        grid-template-rows: 50% 50%;
+        min-height: 1200px;
+    }
+  }

@@ -40,8 +40,7 @@ stereo_methods = {
 app = FastAPI()
 
 origins = [
-    "http://127.0.0.1:5555",
-    "http://127.0.0.1:5555/index.html",
+    "*",
 ]
 
 app.add_middleware(
@@ -61,16 +60,14 @@ async def root() -> JSONResponse:
 @app.post("/savefile")
 async def save_file(file: UploadFile = File(...)) -> JSONResponse:
     if file.filename.split(".")[-1] != "wav":
-        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content = {"message": "Wrong file format!"})
     dir_path = os.path.dirname(os.path.realpath(__file__))
     filename_absolute = f'{dir_path}/inputfiles/{file.filename}'
-    # f = open(f'{filename_absolute}', 'wb')
-    # content = await file.read()
-    # f.write(content)
+    f = open(f'{filename_absolute}', 'wb')
+    content = await file.read()
+    f.write(content)
 
-    #os.remove(filename)
-
-    return JSONResponse(status_code=status.HTTP_200_OK)
+    return JSONResponse(status_code=status.HTTP_200_OK, content = {"message": f"File {file.filename} loaded."})
 
 class Mono(BaseModel):
     filename: str
@@ -82,9 +79,12 @@ class Mono(BaseModel):
 @app.post("/convertmono")
 async def convert_mono(mono: Mono = Body(...)) -> JSONResponse:
     
-    ambisonic_to_mono(mono.filename, mono.theta, mono.p, "Mono", mono.format)
+    response = ambisonic_to_mono(mono.filename, mono.theta, mono.p, "Mono", mono.format)
 
-    return JSONResponse(status_code=status.HTTP_200_OK)
+    if response.status_code != 200:
+        return response
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content = {"filenames": [f"Mono_{mono.filename}"], "message": "Ready to download"})
 
 
 class Stereo(BaseModel):
@@ -102,19 +102,24 @@ async def convert_stereo(stereo: Stereo = Body(...)) -> JSONResponse:
     p_1 = stereo_methods[method]["mic1_polarity"]
     label_1 = stereo_methods[method]["mic1_label"]
 
-    ambisonic_to_mono(stereo.filename, theta_1, p_1, label_1, stereo.format)
+    response = ambisonic_to_mono(stereo.filename, theta_1, p_1, label_1, stereo.format)
+
+    if response.status_code != 200:
+        return response
 
     theta_2 = stereo_methods[method]["mic2_angle"]
     p_2 = stereo_methods[method]["mic2_polarity"]
     label_2 = stereo_methods[method]["mic2_label"]
 
-    ambisonic_to_mono(stereo.filename, theta_2, p_2, label_2, stereo.format)
+    response = ambisonic_to_mono(stereo.filename, theta_2, p_2, label_2, stereo.format)
 
-    return JSONResponse(status_code=status.HTTP_200_OK)
+    if response.status_code != 200:
+        return response
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content = {"filenames": [f"{label_1}_{stereo.filename}", f"{label_2}_{stereo.filename}"], "message": "Ready to download"})
 
 
 def ambisonic_to_mono(filename: str, theta: str, p: str, label: str, format: str) -> JSONResponse:
-    print(format)
     # first mic
     theta = int(theta)
     p = int(p) / 100
@@ -124,9 +129,18 @@ def ambisonic_to_mono(filename: str, theta: str, p: str, label: str, format: str
     theta_rad = (theta * 180) / 3.1415
     cosine = round(cos(theta_rad), 2)
     sine = round(sin(theta_rad), 2)
-    samplerate, data = sc.read(f"{filename_absolute}")
-    if data.dtype != np.int16 or data.size > 5_292_000:
-        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    try:
+        samplerate, data = sc.read(f"{filename_absolute}")
+    except:
+        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content = {"message": "Loading error, please refresh site"})
+
+    if data.size > 5_292_000:
+        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content = {"message": "File too large"})
+    if data.dtype != np.int16:
+        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content = {"message": "Wrong bitrate"})
+    if data[0].size != 4:
+        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content = {"message": "Not a 4-channel recording"})
+
     out = np.array([0]*(data.size // 4), dtype = np.int16)
 
     if format == "ambix":
